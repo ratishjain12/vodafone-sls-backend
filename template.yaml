@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Vodafone SLS Application - KYC Verification System
+
+Parameters:
+  Environment:
+    Type: String
+    Default: sandbox
+    AllowedValues:
+      - sandbox
+      - prod
+    Description: Environment name
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 128
+    Runtime: nodejs20.x
+    Architectures:
+      - x86_64
+    LoggingConfig:
+      LogFormat: JSON
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        DOCUMENTS_BUCKET: !Ref DocumentsBucket
+        KYC_TABLE: !Ref KYCVerificationTable
+    Tags:
+      Environment: !Ref Environment
+
+Resources:
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+  # DynamoDB Table
+  KYCVerificationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub vodafone-kyc-verification-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: transactionId
+          AttributeType: S
+        - AttributeName: documentType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: transactionId
+          KeyType: HASH
+        - AttributeName: documentType
+          KeyType: RANGE
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 Bucket
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub vodafone-kyc-documents-${Environment}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Add this new Lambda Layer definition
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub vodafone-common-layer-${Environment}
+      Description: Common dependencies for Vodafone KYC functions
+      ContentUri: layers/
+      CompatibleRuntimes:
+        - nodejs20.x
+      RetentionPolicy: Retain
+
+  # Lambda Functions
+  FlightTicketVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vodafone-flight-kyc-${Environment}
+      CodeUri: dist/flight-ticket-verification/
+      Handler: index.handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KYCVerificationTable
+        - S3ReadPolicy:
+            BucketName: !Ref DocumentsBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /verify/flight-ticket
+            Method: post
+
+  PassportVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vodafone-passport-kyc-${Environment}
+      CodeUri: dist/passport-verification/
+      Handler: index.handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KYCVerificationTable
+        - S3ReadPolicy:
+            BucketName: !Ref DocumentsBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /verify/passport
+            Method: post
+
+  VisaVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vodafone-visa-kyc-${Environment}
+      CodeUri: dist/visa-verification/
+      Handler: index.handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KYCVerificationTable
+        - S3ReadPolicy:
+            BucketName: !Ref DocumentsBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /verify/visa
+            Method: post
+
+  GenerateTxnFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vodafone-kyc-initiate-txn-${Environment}
+      CodeUri: dist/generate-txn/
+      Handler: index.handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KYCVerificationTable
+        - S3WritePolicy:
+            BucketName: !Ref DocumentsBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /kyc/initiate-txn
+            Method: post
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/
+  DocumentsBucketName:
+    Description: S3 Bucket Name
+    Value: !Ref DocumentsBucket
+  KYCTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref KYCVerificationTable

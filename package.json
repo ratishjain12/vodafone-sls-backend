@@ -1,0 +1,19 @@
+{
+  "name": "vodafone-sls",
+  "version": "1.0.0",
+  "description": "This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "esbuild": "npx esbuild --bundle src/*/index.mjs --outdir=dist --outbase=src --sourcemap=inline --platform=node --external:@aws-sdk/* --external:axios --external:uuid",
+    "build": "npm run esbuild && sam build",
+    "deploy:sandbox": "npm run build && sam deploy --config-env sandbox",
+    "deploy:prod": "npm run build && sam deploy --config-env prod"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.25.1"
+  }
+}
