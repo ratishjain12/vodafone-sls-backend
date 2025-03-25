@@ -9,7 +9,7 @@ const calculateOverallStatus = (status) => {
 
   const documentStatuses = [status.passport, status.visa, status.flightTicket];
 
-  if (documentStatuses.includes("REJECTED")) return "REJECTED";
+  if (documentStatuses.includes("FAILED")) return "FAILED";
   if (documentStatuses.includes("PENDING")) return "PENDING";
   return "VERIFIED";
 };

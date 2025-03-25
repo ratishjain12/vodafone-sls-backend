@@ -112,7 +112,7 @@ export const handler = async (event) => {
     const frontImageKey = `${txnId}/passport/front.${frontImageExt}`;
     const backImageKey = `${txnId}/passport/back.${backImageExt}`;
 
-    // Upload images to S3 with correct content type
+    // Upload images to S3 regardless of validation status
     await Promise.all([
       s3Client.send(
         new PutObjectCommand({
@@ -132,46 +132,131 @@ export const handler = async (event) => {
       ),
     ]);
 
-    await docClient.send(
-      new UpdateCommand({
-        TableName: process.env.KYC_TABLE,
-        Key: {
-          txnId: txnId,
-        },
-        UpdateExpression: `
-          SET documents.passport = :passportDoc,
-              personalInfo = :personalInfo,
-              #docStatus.passport = :passportStatus,
-              updatedAt = :timestamp
-        `,
-        ExpressionAttributeNames: {
-          "#docStatus": "status",
-        },
-        ExpressionAttributeValues: {
-          ":passportDoc": {
-            frontImage: frontImageKey,
-            backImage: backImageKey,
-            passportNumber: "A1234567",
-          },
-          ":personalInfo": {
-            name: existingTransaction.Item.personalInfo.name,
-            dateOfBirth: existingTransaction.Item.personalInfo.dateOfBirth,
-            city: "New York",
-            state: "New York",
-            country: "USA",
-            postalCode: "10001",
-            address1: "123 Main Street",
-            address2: "Apt 4B",
-          },
-          ":passportStatus": "VERIFIED",
-          ":timestamp": new Date().toISOString(),
-        },
-      })
-    );
+    // Initialize empty validation details
+    let validationDetails = {};
+    let documentStatus = "VERIFIED";
 
+    // Handle validation type if provided
+    if (result.failedValidationType) {
+      const type = result.failedValidationType.toLowerCase();
+
+      if (type === "all") {
+        validationDetails = {
+          isValidName: false,
+          isValidDOB: false,
+          isValidPassport: false,
+          isValidExpiry: false,
+        };
+        documentStatus = "FAILED";
+      } else {
+        const validationType = parseInt(result.type);
+        if (
+          !isNaN(validationType) &&
+          validationType >= 1 &&
+          validationType <= 4
+        ) {
+          switch (validationType) {
+            case 1:
+              validationDetails.isValidName = false;
+              break;
+            case 2:
+              validationDetails.isValidDOB = false;
+              break;
+            case 3:
+              validationDetails.isValidPassport = false;
+              break;
+            case 4:
+              validationDetails.isValidExpiry = false;
+              break;
+          }
+          documentStatus = "FAILED";
+        }
+      }
+
+      await docClient.send(
+        new UpdateCommand({
+          TableName: process.env.KYC_TABLE,
+          Key: {
+            txnId: txnId,
+          },
+          UpdateExpression: `
+            SET documents.passport = :passportDoc,
+                #docStatus.passport = :passportStatus,
+                updatedAt = :timestamp
+          `,
+          ExpressionAttributeNames: {
+            "#docStatus": "status",
+          },
+          ExpressionAttributeValues: {
+            ":passportDoc": {
+              frontImage: frontImageKey,
+              backImage: backImageKey,
+              validationDetails:
+                Object.keys(validationDetails).length > 0
+                  ? validationDetails
+                  : undefined,
+            },
+            ":passportStatus": documentStatus,
+            ":timestamp": new Date().toISOString(),
+          },
+        })
+      );
+    } else {
+      await docClient.send(
+        new UpdateCommand({
+          TableName: process.env.KYC_TABLE,
+          Key: {
+            txnId: txnId,
+          },
+          UpdateExpression: `
+            SET documents.passport = :passportDoc,
+                personalInfo = :personalInfo,
+                #docStatus.passport = :passportStatus,
+                updatedAt = :timestamp
+          `,
+          ExpressionAttributeNames: {
+            "#docStatus": "status",
+          },
+          ExpressionAttributeValues: {
+            ":passportDoc": {
+              frontImage: frontImageKey,
+              backImage: backImageKey,
+              passportNumber: "A1234567",
+            },
+            ":personalInfo": {
+              ...existingTransaction.Item.personalInfo,
+              city: "New York",
+              state: "New York",
+              country: "USA",
+              postalCode: "10001",
+              address1: "123 Main Street",
+              address2: "Apt 4B",
+            },
+            ":passportStatus": documentStatus,
+            ":timestamp": new Date().toISOString(),
+          },
+        })
+      );
+    }
+    // Check if any validation failed
+    const hasValidationErrors = Object.keys(validationDetails).length > 0;
+    if (hasValidationErrors) {
+      return {
+        statusCode: 422,
+        body: JSON.stringify({
+          success: false,
+          message: "Passport verification failed due to mismatched data.",
+          isValid: false,
+          validationDetails,
+        }),
+      };
+    }
+
+    // Success response
     return {
       statusCode: 200,
       body: JSON.stringify({
+        success: true,
         message: "Passport verification completed.",
         status: "VERIFIED",
         passportDetails: {
