@@ -12,8 +12,6 @@ const ddbClient = new DynamoDBClient();
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
 export const handler = async (event) => {
-  console.log("Incoming event:", event);
-
   try {
     const result = await parser.parse(event);
     console.log("Parsed form data:", result);
@@ -94,7 +92,6 @@ export const handler = async (event) => {
     }
 
     if (!existingTransaction.Item) {
-      console.log("Invalid transaction ID:", txnId);
       return {
         statusCode: 404,
         body: JSON.stringify({
@@ -135,11 +132,6 @@ export const handler = async (event) => {
       ),
     ]);
 
-    console.log("S3 upload complete:", {
-      frontKey: frontImageKey,
-      backKey: backImageKey,
-    });
-
     await docClient.send(
       new UpdateCommand({
         TableName: process.env.KYC_TABLE,
@@ -176,7 +168,6 @@ export const handler = async (event) => {
         },
       })
     );
-    console.log("DynamoDB update complete");
 
     return {
       statusCode: 200,
@@ -199,12 +190,6 @@ export const handler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error("Error processing request:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    });
-
     return {
       statusCode: 500,
       body: JSON.stringify({
