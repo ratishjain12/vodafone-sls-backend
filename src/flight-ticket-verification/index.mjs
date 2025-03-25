@@ -75,7 +75,7 @@ export const handler = async (event) => {
     // Get file extension and construct S3 key
     const fileExt = ticketImage.filename.split(".").pop().toLowerCase();
     const s3Key = `${txnId}/flight-ticket/ticket.${fileExt}`;
-    const { name } = existingTransaction.Item.personalInfo;
+
     // Upload to S3 and update DynamoDB in parallel
     await Promise.all([
       s3Client.send(
