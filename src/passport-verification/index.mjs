@@ -1,20 +1,20 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
-  DynamoDBClient,
-  UpdateItemCommand,
-  GetItemCommand,
-} from "@aws-sdk/client-dynamodb";
+  DynamoDBDocumentClient,
+  UpdateCommand,
+  GetCommand,
+} from "@aws-sdk/lib-dynamodb";
 import parser from "lambda-multipart-parser";
 
 const s3Client = new S3Client();
-const dynamoClient = new DynamoDBClient();
+const ddbClient = new DynamoDBClient();
+const docClient = DynamoDBDocumentClient.from(ddbClient);
 
 export const handler = async (event) => {
   console.log("Incoming event:", event);
 
   try {
-    // Parse multipart form data
-    console.log("Parsing form data...");
     const result = await parser.parse(event);
     console.log("Parsed form data:", result);
 
@@ -25,9 +25,8 @@ export const handler = async (event) => {
     );
     const backImageFile = result.files.find((f) => f.fieldname === "backImage");
 
-    // Validate required fields
+    // Validate transaction ID
     if (!txnId) {
-      console.log("Missing transaction ID");
       return {
         statusCode: 400,
         body: JSON.stringify({
@@ -36,15 +35,63 @@ export const handler = async (event) => {
       };
     }
 
-    // Check if transaction exists in DynamoDB
-    const existingTransaction = await dynamoClient.send(
-      new GetItemCommand({
-        TableName: process.env.KYC_TABLE,
-        Key: {
-          txnId: { S: txnId },
-        },
-      })
-    );
+    // Validate front image
+    if (!frontImageFile) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Front passport image is required",
+          code: "MISSING_FRONT_IMAGE",
+        }),
+      };
+    }
+
+    // Validate back image
+    if (!backImageFile) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Back passport image is required",
+          code: "MISSING_BACK_IMAGE",
+        }),
+      };
+    }
+
+    // Run transaction check and file preparations in parallel
+    const [existingTransaction, frontImageBuffer, backImageBuffer] =
+      await Promise.all([
+        docClient.send(
+          new GetCommand({
+            TableName: process.env.KYC_TABLE,
+            Key: {
+              txnId: txnId,
+            },
+          })
+        ),
+        Buffer.from(frontImageFile.content, "binary"),
+        Buffer.from(backImageFile.content, "binary"),
+      ]);
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (frontImageBuffer.length > MAX_FILE_SIZE) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Front image file size exceeds 5MB limit",
+          code: "FRONT_FILE_SIZE_EXCEEDED",
+        }),
+      };
+    }
+
+    if (backImageBuffer.length > MAX_FILE_SIZE) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Back image file size exceeds 5MB limit",
+          code: "BACK_FILE_SIZE_EXCEEDED",
+        }),
+      };
+    }
 
     if (!existingTransaction.Item) {
       console.log("Invalid transaction ID:", txnId);
@@ -53,19 +100,6 @@ export const handler = async (event) => {
         body: JSON.stringify({
           message: "Invalid transaction ID. Please initiate a new transaction.",
           code: "INVALID_TRANSACTION_ID",
-        }),
-      };
-    }
-
-    if (!frontImageFile || !backImageFile) {
-      console.log("Missing images:", {
-        hasFront: !!frontImageFile,
-        hasBack: !!backImageFile,
-      });
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: "Both front and back passport images are required",
         }),
       };
     }
@@ -80,9 +114,6 @@ export const handler = async (event) => {
     // Construct S3 keys (keeping original file extensions)
     const frontImageKey = `${txnId}/passport/front.${frontImageExt}`;
     const backImageKey = `${txnId}/passport/back.${backImageExt}`;
-
-    const frontImageBuffer = Buffer.from(frontImageFile.content, "binary");
-    const backImageBuffer = Buffer.from(backImageFile.content, "binary");
 
     // Upload images to S3 with correct content type
     await Promise.all([
@@ -109,17 +140,11 @@ export const handler = async (event) => {
       backKey: backImageKey,
     });
 
-    // Update DynamoDB
-    console.log("Updating DynamoDB:", {
-      table: process.env.KYC_TABLE,
-      txnId: txnId,
-    });
-
-    await dynamoClient.send(
-      new UpdateItemCommand({
+    await docClient.send(
+      new UpdateCommand({
         TableName: process.env.KYC_TABLE,
         Key: {
-          txnId: { S: txnId },
+          txnId: txnId,
         },
         UpdateExpression: `
           SET documents.passport = :passportDoc,
@@ -132,26 +157,22 @@ export const handler = async (event) => {
         },
         ExpressionAttributeValues: {
           ":passportDoc": {
-            M: {
-              frontImage: { S: frontImageKey },
-              backImage: { S: backImageKey },
-              passportNumber: { S: "A1234567" },
-            },
+            frontImage: frontImageKey,
+            backImage: backImageKey,
+            passportNumber: "A1234567",
           },
           ":personalInfo": {
-            M: {
-              name: { S: "John Doe" },
-              dateOfBirth: { S: "1990-01-01" },
-              city: { S: "New York" },
-              state: { S: "New York" },
-              country: { S: "USA" },
-              postalCode: { S: "10001" },
-              address1: { S: "123 Main Street" },
-              address2: { S: "Apt 4B" },
-            },
+            name: "John Doe",
+            dateOfBirth: "1990-01-01",
+            city: "New York",
+            state: "New York",
+            country: "USA",
+            postalCode: "10001",
+            address1: "123 Main Street",
+            address2: "Apt 4B",
           },
-          ":passportStatus": { S: "VERIFIED" },
-          ":timestamp": { S: new Date().toISOString() },
+          ":passportStatus": "VERIFIED",
+          ":timestamp": new Date().toISOString(),
         },
       })
     );

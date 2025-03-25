@@ -1,8 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  TransactWriteCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 
 const ddbClient = new DynamoDBClient({});
@@ -41,9 +38,9 @@ export const handler = async (event) => {
     const txnId = uuidv4();
     const timestamp = new Date().toISOString();
 
-    // Single transaction item with all document information
-    const transactionItem = {
-      Put: {
+    // Create the item directly without transaction wrapper
+    await docClient.send(
+      new PutCommand({
         TableName: process.env.KYC_TABLE,
         Item: {
           txnId,
@@ -71,13 +68,6 @@ export const handler = async (event) => {
           createdAt: timestamp,
           updatedAt: timestamp,
         },
-      },
-    };
-
-    // Create single record
-    await docClient.send(
-      new TransactWriteCommand({
-        TransactItems: [transactionItem],
       })
     );
 
