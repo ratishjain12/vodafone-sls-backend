@@ -97,7 +97,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref KYCVerificationTable
-        - S3ReadPolicy:
+        - S3CrudPolicy:
             BucketName: !Ref DocumentsBucket
       Events:
         ApiEvent:
@@ -139,7 +139,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref KYCVerificationTable
-        - S3ReadPolicy:
+        - S3CrudPolicy:
             BucketName: !Ref DocumentsBucket
       Events:
         ApiEvent:
