@@ -170,6 +170,25 @@ Resources:
             Path: /kyc/initiate-txn
             Method: post
 
+  CheckStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vi-kyc-check-status-${Environment}
+      CodeUri: dist/check-status/
+      Handler: index.handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KYCVerificationTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /kyc/check-status
+            Method: get
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL

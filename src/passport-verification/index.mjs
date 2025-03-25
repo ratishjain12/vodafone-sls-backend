@@ -154,8 +154,8 @@ export const handler = async (event) => {
             passportNumber: "A1234567",
           },
           ":personalInfo": {
-            name: "John Doe",
-            dateOfBirth: "1990-01-01",
+            name: existingTransaction.Item.personalInfo.name,
+            dateOfBirth: existingTransaction.Item.personalInfo.dateOfBirth,
             city: "New York",
             state: "New York",
             country: "USA",
@@ -175,8 +175,8 @@ export const handler = async (event) => {
         message: "Passport verification completed.",
         status: "VERIFIED",
         passportDetails: {
-          name: "John Doe",
-          dateOfBirth: "1990-01-01",
+          name: existingTransaction.Item.personalInfo.name,
+          dateOfBirth: existingTransaction.Item.personalInfo.dateOfBirth,
           passportNumber: "A1234567",
         },
         contactDetails: {

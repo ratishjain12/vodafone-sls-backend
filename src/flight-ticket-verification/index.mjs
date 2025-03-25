@@ -75,7 +75,7 @@ export const handler = async (event) => {
     // Get file extension and construct S3 key
     const fileExt = ticketImage.filename.split(".").pop().toLowerCase();
     const s3Key = `${txnId}/flight-ticket/ticket.${fileExt}`;
-
+    const { name } = existingTransaction.Item.personalInfo;
     // Upload to S3 and update DynamoDB in parallel
     await Promise.all([
       s3Client.send(
@@ -101,7 +101,7 @@ export const handler = async (event) => {
           ExpressionAttributeValues: {
             ":ticketDoc": {
               image: s3Key,
-              passengerName: "John Doe",
+              passengerName: existingTransaction.Item.personalInfo.name,
               flightNumber: "AI 101",
               departure: "New York (JFK)",
               arrival: "London (LHR)",
@@ -119,7 +119,7 @@ export const handler = async (event) => {
         message: "Flight ticket verification completed",
         status: "VERIFIED",
         ticketDetails: {
-          passengerName: "John Doe",
+          passengerName: existingTransaction.Item.personalInfo.name,
           flightNumber: "AI 101",
           departure: "New York (JFK)",
           arrival: "London (LHR)",
