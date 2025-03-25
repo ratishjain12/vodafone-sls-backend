@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "esbuild": "npx esbuild --bundle src/*/index.mjs --outdir=dist --outbase=src --sourcemap=inline --platform=node --external:@aws-sdk/* --external:axios --external:uuid",
+    "esbuild": "npx esbuild --bundle src/*/index.mjs --outdir=dist --outbase=src --sourcemap=inline --platform=node --external:@aws-sdk/* --external:axios --external:uuid --external:lambda-multipart-parser",
     "build": "npm run esbuild && sam build",
     "deploy:sandbox": "npm run build && sam deploy --config-env sandbox",
     "deploy:prod": "npm run build && sam deploy --config-env prod"

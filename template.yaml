@@ -39,22 +39,17 @@ Resources:
         AllowHeaders: "'*'"
         AllowOrigin: "'*'"
 
-  # DynamoDB Table
   KYCVerificationTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub vodafone-kyc-verification-${Environment}
+      TableName: !Sub vi-kyc-verification-${Environment}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: transactionId
-          AttributeType: S
-        - AttributeName: documentType
+        - AttributeName: txnId
           AttributeType: S
       KeySchema:
-        - AttributeName: transactionId
+        - AttributeName: txnId
           KeyType: HASH
-        - AttributeName: documentType
-          KeyType: RANGE
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -63,7 +58,7 @@ Resources:
   DocumentsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub vodafone-kyc-documents-${Environment}
+      BucketName: !Sub vi-kyc-documents-${Environment}
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -83,7 +78,7 @@ Resources:
   CommonLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub vodafone-common-layer-${Environment}
+      LayerName: !Sub vi-common-layer-${Environment}
       Description: Common dependencies for Vodafone KYC functions
       ContentUri: layers/
       CompatibleRuntimes:
@@ -94,7 +89,7 @@ Resources:
   FlightTicketVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vodafone-flight-kyc-${Environment}
+      FunctionName: !Sub vi-flight-kyc-${Environment}
       CodeUri: dist/flight-ticket-verification/
       Handler: index.handler
       Layers:
@@ -115,7 +110,7 @@ Resources:
   PassportVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vodafone-passport-kyc-${Environment}
+      FunctionName: !Sub vi-passport-kyc-${Environment}
       CodeUri: dist/passport-verification/
       Handler: index.handler
       Layers:
@@ -123,7 +118,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref KYCVerificationTable
-        - S3ReadPolicy:
+        - S3CrudPolicy:
             BucketName: !Ref DocumentsBucket
       Events:
         ApiEvent:
@@ -136,7 +131,7 @@ Resources:
   VisaVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vodafone-visa-kyc-${Environment}
+      FunctionName: !Sub vi-visa-kyc-${Environment}
       CodeUri: dist/visa-verification/
       Handler: index.handler
       Layers:
@@ -157,7 +152,7 @@ Resources:
   GenerateTxnFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vodafone-kyc-initiate-txn-${Environment}
+      FunctionName: !Sub vi-kyc-initiate-txn-${Environment}
       CodeUri: dist/generate-txn/
       Handler: index.handler
       Layers:

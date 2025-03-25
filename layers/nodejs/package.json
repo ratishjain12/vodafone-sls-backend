@@ -12,6 +12,7 @@
     "@aws-sdk/lib-dynamodb": "^3.772.0",
     "@aws-sdk/util-dynamodb": "^3.772.0",
     "axios": "^1.8.4",
+    "lambda-multipart-parser": "^1.0.1",
     "uuid": "^11.1.0"
   },
   "keywords": [],

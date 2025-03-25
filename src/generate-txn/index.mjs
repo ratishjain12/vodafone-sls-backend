@@ -38,82 +38,46 @@ export const handler = async (event) => {
       };
     }
 
-    const transactionId = uuidv4();
+    const txnId = uuidv4();
     const timestamp = new Date().toISOString();
 
-    // Create transaction items for metadata and each document type
-    const transactionItems = [
-      // Main transaction metadata
-      {
-        Put: {
-          TableName: process.env.KYC_TABLE,
-          Item: {
-            transactionId,
-            documentType: "METADATA",
-            personalInfo: {
-              name: name.trim(),
-              dateOfBirth,
+    // Single transaction item with all document information
+    const transactionItem = {
+      Put: {
+        TableName: process.env.KYC_TABLE,
+        Item: {
+          txnId,
+          personalInfo: {
+            name: name.trim(),
+            dateOfBirth,
+          },
+          status: {
+            passport: "PENDING",
+            visa: "PENDING",
+            flightTicket: "PENDING",
+          },
+          documents: {
+            passport: {
+              frontImage: null,
+              backImage: null,
             },
-            status: {
-              overall: "INITIATED",
-              passport: "PENDING",
-              visa: "PENDING",
-              flightTicket: "PENDING",
+            visa: {
+              image: null,
             },
-            createdAt: timestamp,
-            updatedAt: timestamp,
+            flightTicket: {
+              image: null,
+            },
           },
+          createdAt: timestamp,
+          updatedAt: timestamp,
         },
       },
-      // Passport document record
-      {
-        Put: {
-          TableName: process.env.KYC_TABLE,
-          Item: {
-            transactionId,
-            documentType: "PASSPORT",
-            number: null,
-            frontImage: null,
-            backImage: null,
-            verificationStatus: "PENDING",
-            updatedAt: timestamp,
-          },
-        },
-      },
-      // Visa document record
-      {
-        Put: {
-          TableName: process.env.KYC_TABLE,
-          Item: {
-            transactionId,
-            documentType: "VISA",
-            number: null,
-            image: null,
-            verificationStatus: "PENDING",
-            updatedAt: timestamp,
-          },
-        },
-      },
-      // Flight ticket document record
-      {
-        Put: {
-          TableName: process.env.KYC_TABLE,
-          Item: {
-            transactionId,
-            documentType: "FLIGHT_TICKET",
-            number: null,
-            image: null,
-            verificationStatus: "PENDING",
-            updatedAt: timestamp,
-          },
-        },
-      },
-    ];
+    };
 
-    // Create all records in a single transaction
+    // Create single record
     await docClient.send(
       new TransactWriteCommand({
-        TransactItems: transactionItems,
+        TransactItems: [transactionItem],
       })
     );
 
@@ -122,13 +86,12 @@ export const handler = async (event) => {
       body: JSON.stringify({
         message: "Transaction created successfully",
         data: {
-          transactionId,
+          txnId,
           personalInfo: {
             name: name.trim(),
             dateOfBirth,
           },
           status: {
-            overall: "INITIATED",
             passport: "PENDING",
             visa: "PENDING",
             flightTicket: "PENDING",
