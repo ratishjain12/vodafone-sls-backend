@@ -29,6 +29,7 @@ export const handler = async (event) => {
         statusCode: 400,
         body: JSON.stringify({
           message: "Transaction ID is required",
+          code: "MISSING_TXN_ID",
         }),
       };
     }

@@ -21,7 +21,7 @@ export const handler = async (event) => {
         statusCode: 400,
         body: JSON.stringify({
           message: "Visa document is required",
-          success: false,
+          code: "MISSING_VISA_DOCUMENT",
         }),
       };
     }
@@ -31,7 +31,7 @@ export const handler = async (event) => {
         statusCode: 400,
         body: JSON.stringify({
           message: "Transaction ID is required",
-          success: false,
+          code: "MISSING_TXN_ID",
         }),
       };
     }
