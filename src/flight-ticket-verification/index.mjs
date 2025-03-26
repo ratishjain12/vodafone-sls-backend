@@ -148,7 +148,7 @@ export const handler = async (event) => {
         statusCode: 200,
         body: JSON.stringify({
           success: false,
-          message: "Visa verification failed due to mismatched data.",
+          message: "Flight Ticket verification failed due to mismatched data.",
           isValid: false,
           validationDetails,
         }),
