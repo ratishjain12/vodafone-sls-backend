@@ -20,7 +20,7 @@ export const handler = async (event) => {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: "Visa document is required",
+          message: "Visa document image is required",
           code: "MISSING_VISA_DOCUMENT",
         }),
       };
