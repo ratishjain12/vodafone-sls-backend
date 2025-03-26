@@ -14,7 +14,7 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
 export const handler = async (event) => {
   try {
     const result = await parser.parse(event);
-
+    const { txnId } = event.pathParameters;
     // Validate required fields
     if (!result.files?.length) {
       return {
@@ -26,7 +26,7 @@ export const handler = async (event) => {
       };
     }
 
-    if (!result.txnId) {
+    if (!txnId) {
       return {
         statusCode: 400,
         body: JSON.stringify({
@@ -37,7 +37,6 @@ export const handler = async (event) => {
     }
 
     const visaDocument = result.files[0];
-    const { txnId } = result;
 
     // Check if transaction exists
     const existingTransaction = await docClient.send(
@@ -58,7 +57,7 @@ export const handler = async (event) => {
     }
 
     // Get user details from existing transaction
-    const { name, dateOfBirth, country } =
+    const { name, dateOfBirth, destination } =
       existingTransaction.Item.personalInfo;
 
     // Initialize validation details and status
@@ -67,9 +66,9 @@ export const handler = async (event) => {
 
     // Handle validation type if provided
     if (result.failedValidationType) {
-      const type = result.failedValidationType.toLowerCase();
+      const type = parseInt(result.failedValidationType);
 
-      if (type === "all") {
+      if (type === 0) {
         validationDetails = {
           isValidName: false,
           isValidDOB: false,
@@ -123,28 +122,25 @@ export const handler = async (event) => {
           TableName: process.env.KYC_TABLE,
           Key: { txnId },
           UpdateExpression: `
-            SET documents.visa = :visaDoc,
-                #docStatus.visa = :visaStatus,
+            SET visa = :visa,
                 updatedAt = :timestamp
           `,
-          ExpressionAttributeNames: {
-            "#docStatus": "status",
-          },
           ExpressionAttributeValues: {
-            ":visaDoc": {
+            ":visa": {
               document: s3Key,
               ...(Object.keys(validationDetails).length > 0
-                ? { validationDetails }
+                ? { validationDetails, score: 0.6, status: documentStatus }
                 : {
                     name,
                     dateOfBirth,
-                    country,
+                    destination,
                     visaNumber:
                       "AC" + Math.floor(1000000 + Math.random() * 9000000),
                     visaType: "MULTIPLE JOURNEY",
+                    status: documentStatus,
+                    score: 0.9,
                   }),
             },
-            ":visaStatus": documentStatus,
             ":timestamp": new Date().toISOString(),
           },
         })
@@ -175,7 +171,7 @@ export const handler = async (event) => {
         visaDetails: {
           name,
           dateOfBirth,
-          country,
+          destination,
           visaNumber: "AC" + Math.floor(1000000 + Math.random() * 9000000),
           visaType: "MULTIPLE JOURNEY",
         },

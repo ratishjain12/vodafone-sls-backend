@@ -4,20 +4,20 @@ import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 const ddbClient = new DynamoDBClient();
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
-const calculateOverallStatus = (status) => {
-  if (!status) return "PENDING";
+const calculateOverallStatus = (passport, visa, flightTicket) => {
+  if (!passport || !visa || !flightTicket) return "PENDING";
 
-  const documentStatuses = [status.passport, status.visa, status.flightTicket];
+  const documentStatuses = [passport.status, visa.status, flightTicket.status];
 
   if (documentStatuses.includes("FAILED")) return "FAILED";
-  if (documentStatuses.includes("PENDING")) return "PENDING";
-  return "VERIFIED";
+  if (documentStatuses.includes("VERIFIED")) return "VERIFIED";
+  return "PENDING";
 };
 
 export const handler = async (event) => {
   try {
     // Extract transaction ID from query parameters
-    const txnId = event.queryStringParameters?.txnId?.trim();
+    const { txnId } = event.pathParameters;
 
     // Validate transaction ID
     if (!txnId) {
@@ -49,8 +49,8 @@ export const handler = async (event) => {
       };
     }
 
-    const { status } = result.Item;
-    const overallStatus = calculateOverallStatus(status);
+    const { passport, visa, flightTicket } = result.Item;
+    const overallStatus = calculateOverallStatus(passport, visa, flightTicket);
 
     return {
       statusCode: 200,
@@ -58,9 +58,21 @@ export const handler = async (event) => {
         message: "Transaction status retrieved successfully",
         overallStatus,
         documents: {
-          passport: status?.passport || "PENDING",
-          visa: status?.visa || "PENDING",
-          flightTicket: status?.flightTicket || "PENDING",
+          passport: {
+            status: passport.status,
+            score: passport.score,
+            document: passport.document,
+          },
+          visa: {
+            status: visa.status,
+            score: visa.score,
+            document: visa.document,
+          },
+          flightTicket: {
+            status: flightTicket.status,
+            score: flightTicket.score,
+            document: flightTicket.document,
+          },
         },
       }),
     };

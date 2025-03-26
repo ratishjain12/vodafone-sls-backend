@@ -17,7 +17,7 @@ export const handler = async (event) => {
     console.log("Parsed form data:", result);
 
     // Extract transaction ID and images
-    const txnId = result.txnId?.trim();
+    const { txnId } = event.pathParameters;
     const frontImageFile = result.files.find(
       (f) => f.fieldname === "frontImage"
     );
@@ -139,9 +139,9 @@ export const handler = async (event) => {
 
     // Handle validation type if provided
     if (result.failedValidationType) {
-      const type = result.failedValidationType.toLowerCase();
+      const type = parseInt(result.failedValidationType);
 
-      if (type === "all") {
+      if (type === 0) {
         validationDetails = {
           isValidName: false,
           isValidDOB: false,
@@ -181,23 +181,22 @@ export const handler = async (event) => {
             txnId: txnId,
           },
           UpdateExpression: `
-            SET documents.passport = :passportDoc,
-                #docStatus.passport = :passportStatus,
+            SET passport = :passport,
                 updatedAt = :timestamp
           `,
-          ExpressionAttributeNames: {
-            "#docStatus": "status",
-          },
           ExpressionAttributeValues: {
-            ":passportDoc": {
-              frontImage: frontImageKey,
-              backImage: backImageKey,
+            ":passport": {
+              status: documentStatus,
+              score: 0.6,
+              document: {
+                frontImage: frontImageKey,
+                backImage: backImageKey,
+              },
               validationDetails:
                 Object.keys(validationDetails).length > 0
                   ? validationDetails
                   : undefined,
             },
-            ":passportStatus": documentStatus,
             ":timestamp": new Date().toISOString(),
           },
         })
@@ -210,22 +209,18 @@ export const handler = async (event) => {
             txnId: txnId,
           },
           UpdateExpression: `
-            SET documents.passport = :passportDoc,
-                personalInfo = :personalInfo,
-                #docStatus.passport = :passportStatus,
+            SET passport = :passport,
                 updatedAt = :timestamp
           `,
-          ExpressionAttributeNames: {
-            "#docStatus": "status",
-          },
           ExpressionAttributeValues: {
-            ":passportDoc": {
-              frontImage: frontImageKey,
-              backImage: backImageKey,
+            ":passport": {
+              status: documentStatus,
+              score: 0.9,
+              document: {
+                frontImage: frontImageKey,
+                backImage: backImageKey,
+              },
               passportNumber: "A1234567",
-            },
-            ":personalInfo": {
-              ...existingTransaction.Item.personalInfo,
               city: "New York",
               state: "New York",
               country: "USA",
@@ -233,7 +228,6 @@ export const handler = async (event) => {
               address1: "123 Main Street",
               address2: "Apt 4B",
             },
-            ":passportStatus": documentStatus,
             ":timestamp": new Date().toISOString(),
           },
         })

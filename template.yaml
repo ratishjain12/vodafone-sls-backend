@@ -89,7 +89,7 @@ Resources:
   FlightTicketVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vi-flight-kyc-${Environment}
+      FunctionName: !Sub vi-flight-${Environment}
       CodeUri: dist/flight-ticket-verification/
       Handler: index.handler
       Layers:
@@ -104,13 +104,13 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /verify/flight-ticket
+            Path: /transactions/{txnId}/flight-ticket
             Method: post
 
   PassportVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vi-passport-kyc-${Environment}
+      FunctionName: !Sub vi-passport-${Environment}
       CodeUri: dist/passport-verification/
       Handler: index.handler
       Layers:
@@ -125,13 +125,13 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /verify/passport
+            Path: /transactions/{txnId}/passport
             Method: post
 
   VisaVerificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vi-visa-kyc-${Environment}
+      FunctionName: !Sub vi-visa-${Environment}
       CodeUri: dist/visa-verification/
       Handler: index.handler
       Layers:
@@ -146,13 +146,13 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /verify/visa
+            Path: /transactions/{txnId}/visa
             Method: post
 
   GenerateTxnFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vi-kyc-initiate-txn-${Environment}
+      FunctionName: !Sub vi-transactions-${Environment}
       CodeUri: dist/generate-txn/
       Handler: index.handler
       Layers:
@@ -167,13 +167,13 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /kyc/initiate-txn
+            Path: /transactions
             Method: post
 
   CheckStatusFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub vi-kyc-check-status-${Environment}
+      FunctionName: !Sub vi-transaction-check-status-${Environment}
       CodeUri: dist/check-status/
       Handler: index.handler
       Layers:
@@ -186,7 +186,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /kyc/check-status
+            Path: /transactions/{txnId}/status
             Method: get
 
 Outputs:

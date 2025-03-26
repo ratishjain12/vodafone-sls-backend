@@ -16,7 +16,7 @@ export const handler = async (event) => {
     const result = await parser.parse(event);
 
     // Extract transaction ID and ticket image
-    const txnId = result.txnId?.trim();
+    const { txnId } = event.pathParameters;
     const ticketImage = result.files[0]; // Directly access first file
 
     // Validate transaction ID
@@ -80,9 +80,9 @@ export const handler = async (event) => {
     let documentStatus = "VERIFIED";
 
     if (result.failedValidationType) {
-      const type = result.failedValidationType.toLowerCase();
+      const type = parseInt(result.failedValidationType);
 
-      if (type === "all") {
+      if (type === 0) {
         validationDetails = {
           isValidName: false,
           isValidDestination: false,
@@ -116,26 +116,23 @@ export const handler = async (event) => {
           TableName: process.env.KYC_TABLE,
           Key: { txnId },
           UpdateExpression: `
-            SET documents.flightTicket = :ticketDoc,
-                #docStatus.flightTicket = :ticketStatus,
+            SET flightTicket = :ticket,
                 updatedAt = :timestamp
           `,
-          ExpressionAttributeNames: {
-            "#docStatus": "status",
-          },
           ExpressionAttributeValues: {
-            ":ticketDoc": {
-              image: s3Key,
+            ":ticket": {
+              document: s3Key,
               ...(Object.keys(validationDetails).length > 0
-                ? { validationDetails }
+                ? { validationDetails, score: 0.6 }
                 : {
                     passengerName: existingTransaction.Item.personalInfo.name,
                     flightNumber: "AI 101",
                     departure: "New York (JFK)",
                     arrival: "London (LHR)",
+                    status: documentStatus,
+                    score: 0.9,
                   }),
             },
-            ":ticketStatus": documentStatus,
             ":timestamp": new Date().toISOString(),
           },
         })
