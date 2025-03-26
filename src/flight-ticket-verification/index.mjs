@@ -89,8 +89,7 @@ export const handler = async (event) => {
         };
         documentStatus = "FAILED";
       } else {
-        const validationType = parseInt(result.type);
-        switch (validationType) {
+        switch (type) {
           case 1:
             validationDetails.isValidName = false;
             break;

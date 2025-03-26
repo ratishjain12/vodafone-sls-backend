@@ -150,7 +150,7 @@ export const handler = async (event) => {
         };
         documentStatus = "FAILED";
       } else {
-        const validationType = parseInt(result.type);
+        const validationType = parseInt(result.failedValidationType);
         if (
           !isNaN(validationType) &&
           validationType >= 1 &&

@@ -77,28 +77,21 @@ export const handler = async (event) => {
         };
         documentStatus = "FAILED";
       } else {
-        const validationType = parseInt(result.type);
-        if (
-          !isNaN(validationType) &&
-          validationType >= 1 &&
-          validationType <= 4
-        ) {
-          switch (validationType) {
-            case 1:
-              validationDetails.isValidName = false;
-              break;
-            case 2:
-              validationDetails.isValidDOB = false;
-              break;
-            case 3:
-              validationDetails.isValidExpiry = false;
-              break;
-            case 4:
-              validationDetails.isValidCountry = false;
-              break;
-          }
-          documentStatus = "FAILED";
+        switch (type) {
+          case 1:
+            validationDetails.isValidName = false;
+            break;
+          case 2:
+            validationDetails.isValidDOB = false;
+            break;
+          case 3:
+            validationDetails.isValidExpiry = false;
+            break;
+          case 4:
+            validationDetails.isValidCountry = false;
+            break;
         }
+        documentStatus = "FAILED";
       }
     }
 
