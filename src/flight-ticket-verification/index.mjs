@@ -76,6 +76,31 @@ export const handler = async (event) => {
     const fileExt = ticketImage.filename.split(".").pop().toLowerCase();
     const s3Key = `${txnId}/flight-ticket/ticket.${fileExt}`;
 
+    let validationDetails = {};
+    let documentStatus = "VERIFIED";
+
+    if (result.failedValidationType) {
+      const type = result.failedValidationType.toLowerCase();
+
+      if (type === "all") {
+        validationDetails = {
+          isValidName: false,
+          isValidDestination: false,
+        };
+        documentStatus = "FAILED";
+      } else {
+        const validationType = parseInt(result.type);
+        switch (validationType) {
+          case 1:
+            validationDetails.isValidName = false;
+            break;
+          case 2:
+            validationDetails.isValidDestination = false;
+            break;
+        }
+        documentStatus = "FAILED";
+      }
+    }
     // Upload to S3 and update DynamoDB in parallel
     await Promise.all([
       s3Client.send(
@@ -101,17 +126,34 @@ export const handler = async (event) => {
           ExpressionAttributeValues: {
             ":ticketDoc": {
               image: s3Key,
-              passengerName: existingTransaction.Item.personalInfo.name,
-              flightNumber: "AI 101",
-              departure: "New York (JFK)",
-              arrival: "London (LHR)",
+              ...(Object.keys(validationDetails).length > 0
+                ? { validationDetails }
+                : {
+                    passengerName: existingTransaction.Item.personalInfo.name,
+                    flightNumber: "AI 101",
+                    departure: "New York (JFK)",
+                    arrival: "London (LHR)",
+                  }),
             },
-            ":ticketStatus": "VERIFIED",
+            ":ticketStatus": documentStatus,
             ":timestamp": new Date().toISOString(),
           },
         })
       ),
     ]);
+
+    const hasValidationErrors = Object.keys(validationDetails).length > 0;
+    if (hasValidationErrors) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: false,
+          message: "Visa verification failed due to mismatched data.",
+          isValid: false,
+          validationDetails,
+        }),
+      };
+    }
 
     return {
       statusCode: 200,

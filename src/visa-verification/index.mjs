@@ -26,16 +26,6 @@ export const handler = async (event) => {
       };
     }
 
-    if (!result.country) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: "Country is required",
-          success: false,
-        }),
-      };
-    }
-
     if (!result.txnId) {
       return {
         statusCode: 400,
@@ -47,7 +37,7 @@ export const handler = async (event) => {
     }
 
     const visaDocument = result.files[0];
-    const { country, txnId } = result;
+    const { txnId } = result;
 
     // Check if transaction exists
     const existingTransaction = await docClient.send(
@@ -68,7 +58,8 @@ export const handler = async (event) => {
     }
 
     // Get user details from existing transaction
-    const { name, dateOfBirth } = existingTransaction.Item.personalInfo;
+    const { name, dateOfBirth, country } =
+      existingTransaction.Item.personalInfo;
 
     // Initialize validation details and status
     let validationDetails = {};
