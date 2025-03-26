@@ -150,89 +150,58 @@ export const handler = async (event) => {
         };
         documentStatus = "FAILED";
       } else {
-        const validationType = parseInt(result.failedValidationType);
-        if (
-          !isNaN(validationType) &&
-          validationType >= 1 &&
-          validationType <= 4
-        ) {
-          switch (validationType) {
-            case 1:
-              validationDetails.isValidName = false;
-              break;
-            case 2:
-              validationDetails.isValidDOB = false;
-              break;
-            case 3:
-              validationDetails.isValidPassport = false;
-              break;
-            case 4:
-              validationDetails.isValidExpiry = false;
-              break;
-          }
-          documentStatus = "FAILED";
+        switch (type) {
+          case 1:
+            validationDetails.isValidName = false;
+            break;
+          case 2:
+            validationDetails.isValidDOB = false;
+            break;
+          case 3:
+            validationDetails.isValidPassport = false;
+            break;
+          case 4:
+            validationDetails.isValidExpiry = false;
+            break;
         }
+        documentStatus = "FAILED";
       }
-
-      await docClient.send(
-        new UpdateCommand({
-          TableName: process.env.KYC_TABLE,
-          Key: {
-            txnId: txnId,
-          },
-          UpdateExpression: `
-            SET passport = :passport,
-                updatedAt = :timestamp
-          `,
-          ExpressionAttributeValues: {
-            ":passport": {
-              status: documentStatus,
-              score: 0.6,
-              document: {
-                frontImage: frontImageKey,
-                backImage: backImageKey,
-              },
-              validationDetails:
-                Object.keys(validationDetails).length > 0
-                  ? validationDetails
-                  : undefined,
-            },
-            ":timestamp": new Date().toISOString(),
-          },
-        })
-      );
-    } else {
-      await docClient.send(
-        new UpdateCommand({
-          TableName: process.env.KYC_TABLE,
-          Key: {
-            txnId: txnId,
-          },
-          UpdateExpression: `
-            SET passport = :passport,
-                updatedAt = :timestamp
-          `,
-          ExpressionAttributeValues: {
-            ":passport": {
-              status: documentStatus,
-              score: 0.9,
-              document: {
-                frontImage: frontImageKey,
-                backImage: backImageKey,
-              },
-              passportNumber: "A1234567",
-              city: "New York",
-              state: "New York",
-              country: "USA",
-              postalCode: "10001",
-              address1: "123 Main Street",
-              address2: "Apt 4B",
-            },
-            ":timestamp": new Date().toISOString(),
-          },
-        })
-      );
     }
+
+    await docClient.send(
+      new UpdateCommand({
+        TableName: process.env.KYC_TABLE,
+        Key: {
+          txnId: txnId,
+        },
+        UpdateExpression: `
+          SET passport = :passport,
+              updatedAt = :timestamp
+        `,
+        ExpressionAttributeValues: {
+          ":passport": {
+            status: documentStatus,
+            document: {
+              frontImage: frontImageKey,
+              backImage: backImageKey,
+            },
+            ...(Object.keys(validationDetails).length > 0
+              ? { validationDetails, score: 0.6 }
+              : {
+                  passportNumber: "A1234567",
+                  city: "New York",
+                  state: "New York",
+                  country: "USA",
+                  postalCode: "10001",
+                  address1: "123 Main Street",
+                  address2: "Apt 4B",
+                  score: 0.9,
+                }),
+          },
+          ":timestamp": new Date().toISOString(),
+        },
+      })
+    );
     // Check if any validation failed
     const hasValidationErrors = Object.keys(validationDetails).length > 0;
     if (hasValidationErrors) {
