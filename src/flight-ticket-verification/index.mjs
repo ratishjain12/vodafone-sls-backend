@@ -118,6 +118,7 @@ export const handler = async (event) => {
       body: JSON.stringify({
         message: "Flight ticket verification completed",
         status: "VERIFIED",
+        success: true,
         ticketDetails: {
           passengerName: existingTransaction.Item.personalInfo.name,
           flightNumber: "AI 101",

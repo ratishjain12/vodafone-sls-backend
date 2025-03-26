@@ -242,7 +242,7 @@ export const handler = async (event) => {
     const hasValidationErrors = Object.keys(validationDetails).length > 0;
     if (hasValidationErrors) {
       return {
-        statusCode: 422,
+        statusCode: 200,
         body: JSON.stringify({
           success: false,
           message: "Passport verification failed due to mismatched data.",
