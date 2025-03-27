@@ -227,8 +227,6 @@ export const handler = async (event) => {
           name: existingTransaction.Item.personalInfo.name,
           dateOfBirth: existingTransaction.Item.personalInfo.dateOfBirth,
           passportNumber: "A1234567",
-        },
-        address: {
           city: "New York",
           state: "New York",
           country: "USA",
