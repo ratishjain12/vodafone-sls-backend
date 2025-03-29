@@ -13,11 +13,8 @@ const docClient = DynamoDBDocumentClient.from(ddbClient);
 
 export const handler = async (event) => {
   try {
-    const result = await parser.parse(event);
-    console.log("Parsed form data:", result);
-
-    // Extract transaction ID and images
     const { txnId } = event.pathParameters;
+    const result = await parser.parse(event);
     const files = result.files.reduce((acc, file) => {
       acc[file.fieldname] = file;
       return acc;
@@ -25,7 +22,6 @@ export const handler = async (event) => {
 
     const { frontImage, backImage } = files;
 
-    // Validate transaction ID
     if (!txnId) {
       return {
         statusCode: 400,
@@ -58,7 +54,6 @@ export const handler = async (event) => {
       };
     }
 
-    // Run transaction check and file preparations in parallel
     const [existingTransaction, frontImageBuffer, backImageBuffer] =
       await Promise.all([
         docClient.send(
@@ -104,15 +99,15 @@ export const handler = async (event) => {
       };
     }
 
-    // Get file extensions from original filenames
-    const frontImageExt = frontImage.filename.split(".").pop().toLowerCase();
-    const backImageExt = backImage.filename.split(".").pop().toLowerCase();
+    const frontImageKey = `aadhar/${txnId}/front.${frontImage.filename
+      .split(".")
+      .pop()
+      .toLowerCase()}`;
+    const backImageKey = `aadhar/${txnId}/back.${backImage.filename
+      .split(".")
+      .pop()
+      .toLowerCase()}`;
 
-    // Construct S3 keys (keeping original file extensions)
-    const frontImageKey = `${txnId}/passport/front.${frontImageExt}`;
-    const backImageKey = `${txnId}/passport/back.${backImageExt}`;
-
-    // Upload images to S3 regardless of validation status
     await Promise.all([
       s3Client.send(
         new PutObjectCommand({
@@ -132,41 +127,6 @@ export const handler = async (event) => {
       ),
     ]);
 
-    // Initialize empty validation details
-    let validationDetails = {};
-    let documentStatus = "VERIFIED";
-
-    // Handle validation type if provided
-    if (result.failedValidationType) {
-      const type = parseInt(result.failedValidationType);
-
-      if (type === 0) {
-        validationDetails = {
-          isValidName: false,
-          isValidDOB: false,
-          isValidPassport: false,
-          isValidExpiry: false,
-        };
-        documentStatus = "FAILED";
-      } else {
-        switch (type) {
-          case 1:
-            validationDetails.isValidName = false;
-            break;
-          case 2:
-            validationDetails.isValidDOB = false;
-            break;
-          case 3:
-            validationDetails.isValidPassport = false;
-            break;
-          case 4:
-            validationDetails.isValidExpiry = false;
-            break;
-        }
-        documentStatus = "FAILED";
-      }
-    }
-
     await docClient.send(
       new UpdateCommand({
         TableName: process.env.KYC_TABLE,
@@ -174,72 +134,44 @@ export const handler = async (event) => {
           txnId: txnId,
         },
         UpdateExpression: `
-          SET passport = :passport,
-              updatedAt = :timestamp
-        `,
+            SET aadhar = :aadhar,
+                updatedAt = :timestamp
+            `,
         ExpressionAttributeValues: {
-          ":passport": {
-            status: documentStatus,
+          ":aadhar": {
+            status: "VERIFIED",
             document: {
               frontImage: frontImageKey,
               backImage: backImageKey,
             },
-            ...(Object.keys(validationDetails).length > 0
-              ? { validationDetails, score: 0.6 }
-              : {
-                  passportNumber: "A1234567",
-                  city: "New York",
-                  state: "New York",
-                  country: "USA",
-                  postalCode: "10001",
-                  address1: "123 Main Street",
-                  address2: "Apt 4B",
-                  score: 0.9,
-                }),
+            aadharNumber: "A1234567",
+            score: 0.9,
           },
           ":timestamp": new Date().toISOString(),
         },
       })
     );
-    // Check if any validation failed
-    const hasValidationErrors = Object.keys(validationDetails).length > 0;
-    if (hasValidationErrors) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: false,
-          message: "Passport verification failed due to mismatched data.",
-          isValid: false,
-          validationDetails,
-        }),
-      };
-    }
 
-    // Success response
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: "Passport verification completed.",
+        message: "Aadhar verification completed.",
         status: "VERIFIED",
-        passportDetails: {
+        aadharDetails: {
           name: existingTransaction.Item.personalInfo.name,
           dateOfBirth: existingTransaction.Item.personalInfo.dateOfBirth,
-          passportNumber: "A1234567",
-          city: "New York",
-          state: "New York",
-          country: "USA",
-          postalCode: "10001",
-          address1: "123 Main Street",
-          address2: "Apt 4B",
+          aadharNumber: "A1234567",
+          score: 0.9,
         },
       }),
     };
   } catch (error) {
+    console.error("Error retrieving transaction status:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: "Error processing passport verification",
+        message: "Error retrieving transaction status",
         error: error.message,
       }),
     };

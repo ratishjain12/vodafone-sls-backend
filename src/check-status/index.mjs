@@ -4,10 +4,15 @@ import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 const ddbClient = new DynamoDBClient();
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
-const calculateOverallStatus = (passport, visa, flightTicket) => {
-  if (!passport || !visa || !flightTicket) return "PENDING";
+const calculateOverallStatus = (passport, visa, flightTicket, aadhar) => {
+  if (!passport || !visa || !flightTicket || !aadhar) return "PENDING";
 
-  const documentStatuses = [passport.status, visa.status, flightTicket.status];
+  const documentStatuses = [
+    passport.status,
+    visa.status,
+    flightTicket.status,
+    aadhar.status,
+  ];
 
   if (documentStatuses.includes("FAILED")) return "FAILED";
   if (documentStatuses.includes("VERIFIED")) return "VERIFIED";
@@ -49,8 +54,13 @@ export const handler = async (event) => {
       };
     }
 
-    const { passport, visa, flightTicket } = result.Item;
-    const overallStatus = calculateOverallStatus(passport, visa, flightTicket);
+    const { passport, visa, flightTicket, aadhar } = result.Item;
+    const overallStatus = calculateOverallStatus(
+      passport,
+      visa,
+      flightTicket,
+      aadhar
+    );
 
     return {
       statusCode: 200,
@@ -58,6 +68,11 @@ export const handler = async (event) => {
         message: "Transaction status retrieved successfully",
         overallStatus,
         documents: {
+          aadhar: {
+            status: aadhar.status,
+            score: aadhar.score,
+            document: aadhar.document,
+          },
           passport: {
             status: passport.status,
             score: passport.score,

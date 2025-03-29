@@ -14,7 +14,7 @@ const validateDateOfBirth = (dob) => {
 export const handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { name, dateOfBirth, destination } = body;
+    const { name, dateOfBirth, emailId, destination, travelDate } = body;
 
     // Validate required fields
     if (!name || !name.trim()) {
@@ -46,8 +46,13 @@ export const handler = async (event) => {
           txnId,
           personalInfo: {
             name: name.trim(),
+            emailId,
             dateOfBirth,
             destination,
+            travelDate,
+          },
+          aadhar: {
+            status: "PENDING",
           },
           passport: {
             status: "PENDING",
@@ -73,7 +78,9 @@ export const handler = async (event) => {
           personalInfo: {
             name: name.trim(),
             dateOfBirth,
+            emailId,
             destination,
+            travelDate,
           },
           timestamp,
         },

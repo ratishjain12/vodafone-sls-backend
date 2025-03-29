@@ -38,6 +38,36 @@ Resources:
         AllowMethods: "'*'"
         AllowHeaders: "'*'"
         AllowOrigin: "'*'"
+      Auth:
+        ApiKeyRequired: true
+      ApiKeySourceType: HEADER
+
+  # Add API Key and Usage Plan
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub vi-kyc-api-key-${Environment}
+      Description: API Key for KYC Verification System
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ApiGateway
+          StageName: !Ref Environment
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub vi-kyc-usage-plan-${Environment}
+      Description: Usage plan for KYC Verification System
+      ApiStages:
+        - ApiId: !Ref ApiGateway
+          Stage: !Ref Environment
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
 
   KYCVerificationTable:
     Type: AWS::DynamoDB::Table
@@ -149,6 +179,27 @@ Resources:
             Path: /transactions/{txnId}/visa
             Method: post
 
+  AadharVerificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vi-aadhar-${Environment}
+      CodeUri: dist/aadhar-verification/
+      Handler: index.handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KYCVerificationTable
+        - S3CrudPolicy:
+            BucketName: !Ref DocumentsBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /transactions/{txnId}/aadhar
+            Method: post
+
   GenerateTxnFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -199,3 +250,9 @@ Outputs:
   KYCTableName:
     Description: DynamoDB Table Name
     Value: !Ref KYCVerificationTable
+  ApiKeyId:
+    Description: API Key ID
+    Value: !Ref ApiKey
+  UsagePlanId:
+    Description: Usage Plan ID
+    Value: !Ref UsagePlan
